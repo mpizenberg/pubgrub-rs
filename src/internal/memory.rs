@@ -107,6 +107,12 @@ impl<P: Package, V: Version> Memory<P, V> {
     /// and if it contains at least one positive derivation term
     /// in the partial solution.
     pub fn potential_packages(&self) -> impl Iterator<Item = (&P, &Range<V>)> {
+        // let count = self
+        //     .assignments
+        //     .iter()
+        //     .filter_map(|(p, pa)| pa.potential_package_filter(p))
+        //     .count();
+        // println!("Potential packages count: {}", count);
         self.assignments
             .iter()
             .filter_map(|(p, pa)| pa.potential_package_filter(p))

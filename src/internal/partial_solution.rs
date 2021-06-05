@@ -63,6 +63,7 @@ impl<P: Package, V: Version> PartialSolution<P, V> {
 
     /// Add a decision to the partial solution.
     pub fn add_decision(&mut self, package: P, version: V) {
+        // println!("Add decision: {} @ {}", &package, &version);
         self.decision_level = self.decision_level + DecisionLevel(1);
         self.memory.add_decision(package.clone(), version.clone());
         self.history.push(DatedAssignment {

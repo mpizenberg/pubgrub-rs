@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -32,6 +33,18 @@ impl<T> PartialEq for Id<T> {
 }
 
 impl<T> Eq for Id<T> {}
+
+impl<T> PartialOrd for Id<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for Id<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.raw.cmp(&other.raw)
+    }
+}
 
 impl<T> Hash for Id<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -89,6 +102,10 @@ impl<T: fmt::Debug> fmt::Debug for Arena<T> {
 impl<T> Arena<T> {
     pub fn new() -> Arena<T> {
         Arena { data: Vec::new() }
+    }
+
+    pub fn len(&self) -> usize {
+        self.data.len()
     }
 
     pub fn alloc(&mut self, value: T) -> Id<T> {

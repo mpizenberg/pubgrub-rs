@@ -3,6 +3,7 @@
 //! Core model and functions
 //! to write a functional PubGrub algorithm.
 
+use std::collections::BTreeSet as BSet;
 use std::collections::HashSet as Set;
 
 use crate::error::PubGrubError;
@@ -24,11 +25,11 @@ pub struct State<P: Package, V: Version> {
     root_package: P,
     root_version: V,
 
-    incompatibilities: Map<P, Vec<IncompId<P, V>>>,
+    incompatibilities: Map<P, BSet<IncompId<P, V>>>,
 
     /// Store the ids of incompatibilities that are already contradicted
     /// and will stay that way until the next conflict and backtrack is operated.
-    contradicted_incompatibilities: rustc_hash::FxHashSet<IncompId<P, V>>,
+    contradicted_incompatibilities: Map<P, BSet<IncompId<P, V>>>,
 
     /// Partial solution.
     /// TODO: remove pub.
@@ -52,12 +53,13 @@ impl<P: Package, V: Version> State<P, V> {
             root_version.clone(),
         ));
         let mut incompatibilities = Map::default();
-        incompatibilities.insert(root_package.clone(), vec![not_root_id]);
+        let root_set = std::iter::once(not_root_id).collect();
+        incompatibilities.insert(root_package.clone(), root_set);
         Self {
             root_package,
             root_version,
             incompatibilities,
-            contradicted_incompatibilities: rustc_hash::FxHashSet::default(),
+            contradicted_incompatibilities: Map::default(),
             partial_solution: PartialSolution::empty(),
             incompatibility_store,
             unit_propagation_buffer: SmallVec::Empty,
@@ -100,15 +102,15 @@ impl<P: Package, V: Version> State<P, V> {
     pub fn unit_propagation(&mut self, package: P) -> Result<(), PubGrubError<P, V>> {
         self.unit_propagation_buffer.clear();
         self.unit_propagation_buffer.push(package);
+        let mut temp_contradicted = BSet::new();
         while let Some(current_package) = self.unit_propagation_buffer.pop() {
             // Iterate over incompatibilities in reverse order
             // to evaluate first the newest incompatibilities.
             let mut conflict_id = None;
             // We only care about incompatibilities if it contains the current package.
-            for &incompat_id in self.incompatibilities[&current_package].iter().rev() {
-                if self.contradicted_incompatibilities.contains(&incompat_id) {
-                    continue;
-                }
+            let current_incompats_ids = self.incompatibilities.get_mut(&current_package).unwrap();
+            temp_contradicted.clear();
+            for &incompat_id in current_incompats_ids.iter().rev() {
                 let current_incompat = &self.incompatibility_store[incompat_id];
                 match self.partial_solution.relation(current_incompat) {
                     // If the partial solution satisfies the incompatibility
@@ -126,14 +128,26 @@ impl<P: Package, V: Version> State<P, V> {
                             &self.incompatibility_store,
                         );
                         // With the partial solution updated, the incompatibility is now contradicted.
-                        self.contradicted_incompatibilities.insert(incompat_id);
+                        temp_contradicted.insert(incompat_id);
                     }
                     Relation::Contradicted(_) => {
-                        self.contradicted_incompatibilities.insert(incompat_id);
+                        temp_contradicted.insert(incompat_id);
                     }
                     _ => {}
                 }
             }
+
+            // Remove contradicted incompats from saved incompats.
+            temp_contradicted.iter().for_each(|id| {
+                current_incompats_ids.remove(id);
+            });
+            // And add them to the temporary map of contradicted incompats.
+            self.contradicted_incompatibilities
+                .entry(current_package)
+                .or_default()
+                .append(&mut temp_contradicted);
+
+            // Perform conflict resolution if we detected a conflict.
             if let Some(incompat_id) = conflict_id {
                 let (package_almost, root_cause) = self.conflict_resolution(incompat_id)?;
                 self.unit_propagation_buffer.clear();
@@ -146,7 +160,8 @@ impl<P: Package, V: Version> State<P, V> {
                 );
                 // After conflict resolution and the partial solution update,
                 // the root cause incompatibility is now contradicted.
-                self.contradicted_incompatibilities.insert(root_cause);
+                // TODO: take care of changing this.
+                // self.contradicted_incompatibilities.insert(root_cause);
             }
         }
         // If there are no more changed packages, unit propagation is done.
@@ -215,9 +230,26 @@ impl<P: Package, V: Version> State<P, V> {
         incompat_changed: bool,
         decision_level: DecisionLevel,
     ) {
+        // println!(
+        //     "Contradicted incompat count: {}",
+        //     self.contradicted_incompatibilities.len()
+        // );
+        // println!(
+        //     "Saved incompat count:        {}",
+        //     self.incompatibility_store.len()
+        // );
         self.partial_solution
             .backtrack(decision_level, &self.incompatibility_store);
-        self.contradicted_incompatibilities.clear();
+        // Redirect contradicted incompat to saved incompatibilities.
+        for (p, set) in self.contradicted_incompatibilities.iter_mut() {
+            if !set.is_empty() {
+                self.incompatibilities
+                    .entry(p.clone())
+                    .or_default()
+                    .append(set);
+            }
+        }
+        // Save the new incompatibility.
         if incompat_changed {
             self.merge_incompatibility(incompat);
         }
@@ -247,7 +279,7 @@ impl<P: Package, V: Version> State<P, V> {
             self.incompatibilities
                 .entry(pkg.clone())
                 .or_default()
-                .push(id);
+                .insert(id);
         }
     }
 
