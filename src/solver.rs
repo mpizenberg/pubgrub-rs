@@ -100,11 +100,7 @@ pub fn resolve<P: Package, V: Version>(
             // The borrow checker did not like using a match on potential_packages.
             // This `if ... is_none ... drop` is a workaround.
             // I believe this is a case where Polonius could help, when and if it lands in rustc.
-            return state.partial_solution.extract_solution().ok_or_else(|| {
-                PubGrubError::Failure(
-                    "How did we end up with no package to choose but no solution?".into(),
-                )
-            });
+            return Ok(state.partial_solution.extract_solution());
         }
         let decision = dependency_provider
             .choose_package_version(potential_packages.unwrap())
