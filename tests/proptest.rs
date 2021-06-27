@@ -6,10 +6,7 @@ use pubgrub::error::PubGrubError;
 use pubgrub::package::Package;
 use pubgrub::range::Range;
 use pubgrub::report::{DefaultStringReporter, Reporter};
-use pubgrub::solver::{
-    choose_package_with_fewest_versions, resolve, Dependencies, DependencyProvider,
-    OfflineDependencyProvider,
-};
+use pubgrub::solver::{resolve, Dependencies, DependencyProvider, OfflineDependencyProvider};
 use pubgrub::version::{NumberVersion, Version};
 
 use proptest::collection::{btree_map, vec};
@@ -27,18 +24,24 @@ mod sat_dependency_provider;
 struct OldestVersionsDependencyProvider<P: Package, V: Version>(OfflineDependencyProvider<P, V>);
 
 impl<P: Package, V: Version> DependencyProvider<P, V> for OldestVersionsDependencyProvider<P, V> {
-    fn choose_package_version<T: std::borrow::Borrow<P>, U: std::borrow::Borrow<Range<V>>>(
-        &self,
-        potential_packages: impl Iterator<Item = (T, U)>,
-    ) -> Result<(T, Option<V>), Box<dyn Error>> {
-        Ok(choose_package_with_fewest_versions(
-            |p| self.0.versions(p).into_iter().flatten().cloned(),
-            potential_packages,
-        ))
-    }
-
     fn get_dependencies(&self, p: &P, v: &V) -> Result<Dependencies<P, V>, Box<dyn Error>> {
         self.0.get_dependencies(p, v)
+    }
+
+    fn choose_version(&self, package: &P, range: &Range<V>) -> Result<Option<V>, Box<dyn Error>> {
+        Ok(self
+            .0
+            .versions(package)
+            .into_iter()
+            .flatten()
+            .find(|&v| range.contains(v))
+            .cloned())
+    }
+
+    type Priority = <OfflineDependencyProvider<P, V> as DependencyProvider<P, V>>::Priority;
+
+    fn prioritize(&self, package: &P, range: &Range<V>) -> Self::Priority {
+        self.0.prioritize(package, range)
     }
 }
 
@@ -65,13 +68,6 @@ impl<DP> TimeoutDependencyProvider<DP> {
 impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P, V>
     for TimeoutDependencyProvider<DP>
 {
-    fn choose_package_version<T: std::borrow::Borrow<P>, U: std::borrow::Borrow<Range<V>>>(
-        &self,
-        potential_packages: impl Iterator<Item = (T, U)>,
-    ) -> Result<(T, Option<V>), Box<dyn Error>> {
-        self.dp.choose_package_version(potential_packages)
-    }
-
     fn get_dependencies(&self, p: &P, v: &V) -> Result<Dependencies<P, V>, Box<dyn Error>> {
         self.dp.get_dependencies(p, v)
     }
@@ -82,6 +78,16 @@ impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P,
         assert!(calls < self.max_calls);
         self.call_count.set(calls + 1);
         Ok(())
+    }
+
+    fn choose_version(&self, package: &P, range: &Range<V>) -> Result<Option<V>, Box<dyn Error>> {
+        self.dp.choose_version(package, range)
+    }
+
+    type Priority = DP::Priority;
+
+    fn prioritize(&self, package: &P, range: &Range<V>) -> Self::Priority {
+        self.dp.prioritize(package, range)
     }
 }
 

@@ -23,6 +23,7 @@ include = ["Cargo.toml", "LICENSE", "README.md", "src/**", "tests/**", "examples
 thiserror = "1.0"
 rustc-hash = "1.1.0"
 indexmap = "1.6.2"
+priority-queue = "1.1.1"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
