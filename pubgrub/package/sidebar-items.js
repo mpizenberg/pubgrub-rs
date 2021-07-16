@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Package","Trait for identifying packages. Automatically implemented for types already implementing [Clone] + [Eq] + [Hash] + [Debug] + Display."]]});

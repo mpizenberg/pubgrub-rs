@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Term","A positive or negative expression regarding a set of versions."]]});

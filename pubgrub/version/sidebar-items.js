@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["VersionParseError","Error creating [SemanticVersion] from [String]."]],"struct":[["NumberVersion","Simplest versions possible, just a positive number."],["SemanticVersion","Type for semantic versions: major.minor.patch."]],"trait":[["Version","Versions have a minimal version (a “0” version) and are ordered such that every version has a next one."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"type":[["Map","Map implementation used by the library."],["SelectedDependencies","Concrete dependencies picked by the library during resolve from DependencyConstraints"]]});

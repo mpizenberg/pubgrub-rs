@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src&#x2F;error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../pubgrub/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input"name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+</pre><pre class="rust">
+<span class="comment">// SPDX-License-Identifier: MPL-2.0</span>
+
+<span class="doccomment">//! Handling pubgrub errors.</span>
+
+<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::package::Package</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::report::DerivationTree</span>;
+<span class="kw">use</span> <span class="kw">crate</span><span class="ident">::version::Version</span>;
+
+<span class="doccomment">/// Errors that may occur while solving dependencies.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">PubGrubError</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">Package</span>, <span class="ident">V</span>: <span class="ident">Version</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// There is no solution for this set of dependencies.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;No solution&quot;</span>)]</span>
+    <span class="ident">NoSolution</span>(<span class="ident">DerivationTree</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">V</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Error arising when the implementer of</span>
+    <span class="doccomment">/// [DependencyProvider](crate::solver::DependencyProvider)</span>
+    <span class="doccomment">/// returned an error in the method</span>
+    <span class="doccomment">/// [get_dependencies](crate::solver::DependencyProvider::get_dependencies).</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Retrieving dependencies of {package} {version} failed&quot;</span>)]</span>
+    <span class="ident">ErrorRetrievingDependencies</span> {
+        <span class="doccomment">/// Package whose dependencies we want.</span>
+        <span class="ident">package</span>: <span class="ident">P</span>,
+        <span class="doccomment">/// Version of the package for which we want the dependencies.</span>
+        <span class="ident">version</span>: <span class="ident">V</span>,
+        <span class="doccomment">/// Error raised by the implementer of</span>
+        <span class="doccomment">/// [DependencyProvider](crate::solver::DependencyProvider).</span>
+        <span class="ident">source</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span>,
+    },
+
+    <span class="doccomment">/// Error arising when the implementer of</span>
+    <span class="doccomment">/// [DependencyProvider](crate::solver::DependencyProvider)</span>
+    <span class="doccomment">/// returned a dependency on an empty range.</span>
+    <span class="doccomment">/// This technically means that the package can not be selected,</span>
+    <span class="doccomment">/// but is clearly some kind of mistake.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Package {dependent} required by {package} {version} depends on the empty set&quot;</span>)]</span>
+    <span class="ident">DependencyOnTheEmptySet</span> {
+        <span class="doccomment">/// Package whose dependencies we want.</span>
+        <span class="ident">package</span>: <span class="ident">P</span>,
+        <span class="doccomment">/// Version of the package for which we want the dependencies.</span>
+        <span class="ident">version</span>: <span class="ident">V</span>,
+        <span class="doccomment">/// The dependent package that requires us to pick from the empty set.</span>
+        <span class="ident">dependent</span>: <span class="ident">P</span>,
+    },
+
+    <span class="doccomment">/// Error arising when the implementer of</span>
+    <span class="doccomment">/// [DependencyProvider](crate::solver::DependencyProvider)</span>
+    <span class="doccomment">/// returned a dependency on the requested package.</span>
+    <span class="doccomment">/// This technically means that the package directly depends on itself,</span>
+    <span class="doccomment">/// and is clearly some kind of mistake.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;{package} {version} depends on itself&quot;</span>)]</span>
+    <span class="ident">SelfDependency</span> {
+        <span class="doccomment">/// Package whose dependencies we want.</span>
+        <span class="ident">package</span>: <span class="ident">P</span>,
+        <span class="doccomment">/// Version of the package for which we want the dependencies.</span>
+        <span class="ident">version</span>: <span class="ident">V</span>,
+    },
+
+    <span class="doccomment">/// Error arising when the implementer of</span>
+    <span class="doccomment">/// [DependencyProvider](crate::solver::DependencyProvider)</span>
+    <span class="doccomment">/// returned an error in the method</span>
+    <span class="doccomment">/// [choose_package_version](crate::solver::DependencyProvider::choose_package_version).</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Decision making failed&quot;</span>)]</span>
+    <span class="ident">ErrorChoosingPackageVersion</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Error arising when the implementer of [DependencyProvider](crate::solver::DependencyProvider)</span>
+    <span class="doccomment">/// returned an error in the method [should_cancel](crate::solver::DependencyProvider::should_cancel).</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;We should cancel&quot;</span>)]</span>
+    <span class="ident">ErrorInShouldCancel</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span>),
+
+    <span class="doccomment">/// Something unexpected happened.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;{0}&quot;</span>)]</span>
+    <span class="ident">Failure</span>(<span class="ident">String</span>),
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pubgrub" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script>
+</body></html>

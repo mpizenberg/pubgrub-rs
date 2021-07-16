@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Range","A Range is a set of versions."]]});

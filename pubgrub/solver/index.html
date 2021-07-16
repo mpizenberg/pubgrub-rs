@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="PubGrub version solving algorithm."><meta name="keywords" content="rust, rustlang, rust-lang, solver"><title>pubgrub::solver - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg"><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../pubgrub/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a><p class="location">Module solver</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><div id="sidebar-vars" data-name="solver" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input"name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Module <a href="../index.html">pubgrub</a>::<wbr><a class="mod" href="#">solver</a><button id="copy-path" onclick="copy_path(this)" title="copy path"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item import" title="Copy item import to clipboard"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../../src/pubgrub/solver.rs.html#3-394" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>PubGrub version solving algorithm.</p>
+<p>It consists in efficiently finding a set of packages and versions
+that satisfy all the constraints of a given project dependencies.
+In addition, when that is not possible,
+PubGrub tries to provide a very human-readable and clear
+explanation as to why that failed.
+Below is an example of explanation present in
+the introductory blog post about PubGrub</p>
+<div class="example-wrap"><pre class="language-txt">Because dropdown &gt;=2.0.0 depends on icons &gt;=2.0.0 and
+  root depends on icons &lt;2.0.0, dropdown &gt;=2.0.0 is forbidden.
+
+And because menu &gt;=1.1.0 depends on dropdown &gt;=2.0.0,
+  menu &gt;=1.1.0 is forbidden.
+
+And because menu &lt;1.1.0 depends on dropdown &gt;=1.0.0 &lt;2.0.0
+  which depends on intl &lt;4.0.0, every version of menu
+  requires intl &lt;4.0.0.
+
+So, because root depends on both menu &gt;=1.0.0 and intl &gt;=5.0.0,
+  version solving failed.</pre></div>
+<p>The algorithm is generic and works for any type of dependency system
+as long as packages (P) and versions (V) implement
+the <a href="../package/trait.Package.html">Package</a> and <a href="../version/trait.Version.html">Version</a> traits.
+<a href="../package/trait.Package.html">Package</a> is strictly equivalent and automatically generated
+for any type that implement <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="Clone">Clone</a> + <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html" title="Eq">Eq</a> + <a href="https://doc.rust-lang.org/nightly/core/hash/macros/derive.Hash.html" title="Hash">Hash</a> + <a href="https://doc.rust-lang.org/nightly/core/fmt/macros/derive.Debug.html" title="Debug">Debug</a> + <a href="https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html">Display</a>.
+<a href="../version/trait.Version.html">Version</a> simply states that versions are ordered,
+that there should be
+a minimal <a href="../version/trait.Version.html#tymethod.lowest">lowest</a> version (like 0.0.0 in semantic versions),
+and that for any version, it is possible to compute
+what the next version closest to this one is (<a href="../version/trait.Version.html#tymethod.bump">bump</a>).
+For semantic versions, <a href="../version/trait.Version.html#tymethod.bump">bump</a> corresponds to
+an increment of the patch number.</p>
+<h2 id="api" class="section-header"><a href="#api">API</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="ident">solution</span> <span class="op">=</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="ident">dependency_provider</span>, <span class="ident">package</span>, <span class="ident">version</span>)<span class="question-mark">?</span>;</pre></div>
+<p>Where <code>dependency_provider</code> supplies the list of available packages and versions,
+as well as the dependencies of every available package
+by implementing the <a href="trait.DependencyProvider.html" title="DependencyProvider">DependencyProvider</a> trait.
+The call to <a href="fn.resolve.html" title="resolve">resolve</a> for a given package at a given version
+will compute the set of packages and versions needed
+to satisfy the dependencies of that package and version pair.
+If there is no solution, the reason will be provided as clear as possible.</p>
+</div></details><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="struct" href="struct.OfflineDependencyProvider.html" title="pubgrub::solver::OfflineDependencyProvider struct">OfflineDependencyProvider</a></div><div class="item-right docblock-short"><p>A basic implementation of <a href="trait.DependencyProvider.html" title="DependencyProvider">DependencyProvider</a>.</p>
+</div></div><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="enum" href="enum.Dependencies.html" title="pubgrub::solver::Dependencies enum">Dependencies</a></div><div class="item-right docblock-short"><p>An enum used by <a href="trait.DependencyProvider.html" title="DependencyProvider">DependencyProvider</a> that holds information about package dependencies.
+For each <a href="../package/trait.Package.html" title="Package">Package</a> there is a <a href="../range/struct.Range.html" title="Range">Range</a> of concrete versions it allows as a dependency.</p>
+</div></div><h2 id="traits" class="section-header"><a href="#traits">Traits</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="trait" href="trait.DependencyProvider.html" title="pubgrub::solver::DependencyProvider trait">DependencyProvider</a></div><div class="item-right docblock-short"><p>Trait that allows the algorithm to retrieve available packages and their dependencies.
+An implementor needs to be supplied to the <a href="fn.resolve.html" title="resolve">resolve</a> function.</p>
+</div></div><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="fn" href="fn.choose_package_with_fewest_versions.html" title="pubgrub::solver::choose_package_with_fewest_versions fn">choose_package_with_fewest_versions</a></div><div class="item-right docblock-short"><p>This is a helper function to make it easy to implement
+<a href="trait.DependencyProvider.html#tymethod.choose_package_version" title="DependencyProvider::choose_package_version">DependencyProvider::choose_package_version</a>.
+It takes a function <code>list_available_versions</code> that takes a package and returns an iterator
+of the available versions in preference order.
+The helper finds the package from the <code>packages</code> argument with the fewest versions from
+<code>list_available_versions</code> contained in the constraints. Then takes that package and finds the
+first version contained in the constraints.</p>
+</div><div class="item-left module-item"><a class="fn" href="fn.resolve.html" title="pubgrub::solver::resolve fn">resolve</a></div><div class="item-right docblock-short"><p>Main function of the library.
+Finds a set of packages satisfying dependency bounds for a given package + version pair.</p>
+</div></div><h2 id="types" class="section-header"><a href="#types">Type Definitions</a></h2>
+<div class="item-table"><div class="item-left module-item"><a class="type" href="type.DependencyConstraints.html" title="pubgrub::solver::DependencyConstraints type">DependencyConstraints</a></div><div class="item-right docblock-short"><p>Subtype of <a href="enum.Dependencies.html" title="Dependencies">Dependencies</a> which holds information about
+all possible versions a given package can accept.
+There is a difference in semantics between an empty <a href="../type_aliases/type.Map.html">Map&lt;P, Range<V>&gt;</a>
+inside <a href="type.DependencyConstraints.html" title="DependencyConstraints">DependencyConstraints</a> and <a href="enum.Dependencies.html#variant.Unknown" title="Dependencies::Unknown">Dependencies::Unknown</a>:
+the former means the package has no dependencies and it is a known fact,
+while the latter means they could not be fetched by <a href="trait.DependencyProvider.html" title="DependencyProvider">DependencyProvider</a>.</p>
+</div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="pubgrub" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
+    <script src="../../main.js"></script>
+</body></html>
