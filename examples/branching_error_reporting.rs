@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use pubgrub::error::PubGrubError;
-use pubgrub::range::Range;
+use pubgrub::range_trait::Range;
 use pubgrub::report::{DefaultStringReporter, Reporter};
 use pubgrub::solver::{resolve, OfflineDependencyProvider};
-use pubgrub::version::SemanticVersion;
+use pubgrub::version_trait::{SemanticInterval, SemanticVersion};
 
 // https://github.com/dart-lang/pub/blob/master/doc/solver.md#branching-error-reporting
 fn main() {
-    let mut dependency_provider = OfflineDependencyProvider::<&str, SemanticVersion>::new();
+    let mut dependency_provider =
+        OfflineDependencyProvider::<&str, SemanticInterval, SemanticVersion>::new();
     #[rustfmt::skip]
     // root 1.0.0 depends on foo ^1.0.0
         dependency_provider.add_dependencies(

@@ -6,14 +6,15 @@ use thiserror::Error;
 
 use crate::package::Package;
 use crate::report::DerivationTree;
-use crate::version::Version;
+use crate::version_trait::{Interval, Version};
+use std::fmt::Debug;
 
 /// Errors that may occur while solving dependencies.
 #[derive(Error, Debug)]
-pub enum PubGrubError<P: Package, V: Version> {
+pub enum PubGrubError<P: Package, I: Interval<V> + Debug, V: Version> {
     /// There is no solution for this set of dependencies.
     #[error("No solution")]
-    NoSolution(DerivationTree<P, V>),
+    NoSolution(DerivationTree<P, I, V>),
 
     /// Error arising when the implementer of
     /// [DependencyProvider](crate::solver::DependencyProvider)

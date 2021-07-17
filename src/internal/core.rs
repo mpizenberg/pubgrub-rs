@@ -4,6 +4,7 @@
 //! to write a functional PubGrub algorithm.
 
 use std::collections::HashSet as Set;
+use std::fmt::Debug;
 
 use crate::error::PubGrubError;
 use crate::internal::arena::Arena;
@@ -17,26 +18,26 @@ use crate::package::Package;
 use crate::report::DerivationTree;
 use crate::solver::DependencyConstraints;
 use crate::type_aliases::Map;
-use crate::version::Version;
+use crate::version_trait::{Interval, Version};
 
 /// Current state of the PubGrub algorithm.
 #[derive(Clone)]
-pub struct State<P: Package, V: Version> {
+pub struct State<P: Package, I: Interval<V>, V: Version> {
     root_package: P,
     root_version: V,
 
-    incompatibilities: Map<P, Vec<IncompId<P, V>>>,
+    incompatibilities: Map<P, Vec<IncompId<P, I, V>>>,
 
     /// Store the ids of incompatibilities that are already contradicted
     /// and will stay that way until the next conflict and backtrack is operated.
-    contradicted_incompatibilities: rustc_hash::FxHashSet<IncompId<P, V>>,
+    contradicted_incompatibilities: rustc_hash::FxHashSet<IncompId<P, I, V>>,
 
     /// Partial solution.
     /// TODO: remove pub.
-    pub partial_solution: PartialSolution<P, V>,
+    pub partial_solution: PartialSolution<P, I, V>,
 
     /// The store is the reference storage for all incompatibilities.
-    pub incompatibility_store: Arena<Incompatibility<P, V>>,
+    pub incompatibility_store: Arena<Incompatibility<P, I, V>>,
 
     /// This is a stack of work to be done in `unit_propagation`.
     /// It can definitely be a local variable to that method, but
@@ -44,7 +45,7 @@ pub struct State<P: Package, V: Version> {
     unit_propagation_buffer: SmallVec<P>,
 }
 
-impl<P: Package, V: Version> State<P, V> {
+impl<P: Package, I: Interval<V> + Debug, V: Version> State<P, I, V> {
     /// Initialization of PubGrub state.
     pub fn init(root_package: P, root_version: V) -> Self {
         let mut incompatibility_store = Arena::new();
@@ -66,7 +67,7 @@ impl<P: Package, V: Version> State<P, V> {
     }
 
     /// Add an incompatibility to the state.
-    pub fn add_incompatibility(&mut self, incompat: Incompatibility<P, V>) {
+    pub fn add_incompatibility(&mut self, incompat: Incompatibility<P, I, V>) {
         let id = self.incompatibility_store.alloc(incompat);
         self.merge_incompatibility(id);
     }
@@ -76,8 +77,8 @@ impl<P: Package, V: Version> State<P, V> {
         &mut self,
         package: P,
         version: V,
-        deps: &DependencyConstraints<P, V>,
-    ) -> std::ops::Range<IncompId<P, V>> {
+        deps: &DependencyConstraints<P, I, V>,
+    ) -> std::ops::Range<IncompId<P, I, V>> {
         // Create incompatibilities and allocate them in the store.
         let new_incompats_id_range = self
             .incompatibility_store
@@ -92,13 +93,13 @@ impl<P: Package, V: Version> State<P, V> {
     }
 
     /// Check if an incompatibility is terminal.
-    pub fn is_terminal(&self, incompatibility: &Incompatibility<P, V>) -> bool {
+    pub fn is_terminal(&self, incompatibility: &Incompatibility<P, I, V>) -> bool {
         incompatibility.is_terminal(&self.root_package, &self.root_version)
     }
 
     /// Unit propagation is the core mechanism of the solving algorithm.
     /// CF <https://github.com/dart-lang/pub/blob/master/doc/solver.md#unit-propagation>
-    pub fn unit_propagation(&mut self, package: P) -> Result<(), PubGrubError<P, V>> {
+    pub fn unit_propagation(&mut self, package: P) -> Result<(), PubGrubError<P, I, V>> {
         self.unit_propagation_buffer.clear();
         self.unit_propagation_buffer.push(package);
         while let Some(current_package) = self.unit_propagation_buffer.pop() {
@@ -158,8 +159,8 @@ impl<P: Package, V: Version> State<P, V> {
     /// CF <https://github.com/dart-lang/pub/blob/master/doc/solver.md#unit-propagation>
     fn conflict_resolution(
         &mut self,
-        incompatibility: IncompId<P, V>,
-    ) -> Result<(P, IncompId<P, V>), PubGrubError<P, V>> {
+        incompatibility: IncompId<P, I, V>,
+    ) -> Result<(P, IncompId<P, I, V>), PubGrubError<P, I, V>> {
         let mut current_incompat_id = incompatibility;
         let mut current_incompat_changed = false;
         loop {
@@ -203,7 +204,7 @@ impl<P: Package, V: Version> State<P, V> {
     /// Backtracking.
     fn backtrack(
         &mut self,
-        incompat: IncompId<P, V>,
+        incompat: IncompId<P, I, V>,
         incompat_changed: bool,
         decision_level: DecisionLevel,
     ) {
@@ -234,7 +235,7 @@ impl<P: Package, V: Version> State<P, V> {
     /// Here we do the simple stupid thing of just growing the Vec.
     /// It may not be trivial since those incompatibilities
     /// may already have derived others.
-    fn merge_incompatibility(&mut self, id: IncompId<P, V>) {
+    fn merge_incompatibility(&mut self, id: IncompId<P, I, V>) {
         for (pkg, _term) in self.incompatibility_store[id].iter() {
             self.incompatibilities
                 .entry(pkg.clone())
@@ -245,12 +246,12 @@ impl<P: Package, V: Version> State<P, V> {
 
     // Error reporting #########################################################
 
-    fn build_derivation_tree(&self, incompat: IncompId<P, V>) -> DerivationTree<P, V> {
+    fn build_derivation_tree(&self, incompat: IncompId<P, I, V>) -> DerivationTree<P, I, V> {
         let shared_ids = self.find_shared_ids(incompat);
         Incompatibility::build_derivation_tree(incompat, &shared_ids, &self.incompatibility_store)
     }
 
-    fn find_shared_ids(&self, incompat: IncompId<P, V>) -> Set<IncompId<P, V>> {
+    fn find_shared_ids(&self, incompat: IncompId<P, I, V>) -> Set<IncompId<P, I, V>> {
         let mut all_ids = Set::new();
         let mut shared_ids = Set::new();
         let mut stack = vec![incompat];

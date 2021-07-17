@@ -212,10 +212,12 @@
 pub mod error;
 pub mod package;
 pub mod range;
+pub mod range_trait;
 pub mod report;
 pub mod solver;
 pub mod term;
 pub mod type_aliases;
 pub mod version;
+pub mod version_trait;
 
 mod internal;

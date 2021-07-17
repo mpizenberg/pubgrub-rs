@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use pubgrub::range::Range;
+use pubgrub::range_trait::Range;
 use pubgrub::solver::{resolve, OfflineDependencyProvider};
 use pubgrub::type_aliases::Map;
-use pubgrub::version::{NumberVersion, SemanticVersion};
+use pubgrub::version_trait::{NumberInterval, NumberVersion, SemanticInterval, SemanticVersion};
 
 #[test]
 /// https://github.com/dart-lang/pub/blob/master/doc/solver.md#no-conflicts
 fn no_conflict() {
-    let mut dependency_provider = OfflineDependencyProvider::<&str, SemanticVersion>::new();
+    let mut dependency_provider =
+        OfflineDependencyProvider::<&str, SemanticInterval, SemanticVersion>::new();
     #[rustfmt::skip]
         dependency_provider.add_dependencies(
         "root", (1, 0, 0),
@@ -38,7 +39,8 @@ fn no_conflict() {
 #[test]
 /// https://github.com/dart-lang/pub/blob/master/doc/solver.md#avoiding-conflict-during-decision-making
 fn avoiding_conflict_during_decision_making() {
-    let mut dependency_provider = OfflineDependencyProvider::<&str, SemanticVersion>::new();
+    let mut dependency_provider =
+        OfflineDependencyProvider::<&str, SemanticInterval, SemanticVersion>::new();
     #[rustfmt::skip]
         dependency_provider.add_dependencies(
         "root", (1, 0, 0),
@@ -73,7 +75,8 @@ fn avoiding_conflict_during_decision_making() {
 #[test]
 /// https://github.com/dart-lang/pub/blob/master/doc/solver.md#performing-conflict-resolution
 fn conflict_resolution() {
-    let mut dependency_provider = OfflineDependencyProvider::<&str, SemanticVersion>::new();
+    let mut dependency_provider =
+        OfflineDependencyProvider::<&str, SemanticInterval, SemanticVersion>::new();
     #[rustfmt::skip]
         dependency_provider.add_dependencies(
         "root", (1, 0, 0),
@@ -106,7 +109,8 @@ fn conflict_resolution() {
 #[test]
 /// https://github.com/dart-lang/pub/blob/master/doc/solver.md#conflict-resolution-with-a-partial-satisfier
 fn conflict_with_partial_satisfier() {
-    let mut dependency_provider = OfflineDependencyProvider::<&str, SemanticVersion>::new();
+    let mut dependency_provider =
+        OfflineDependencyProvider::<&str, SemanticInterval, SemanticVersion>::new();
     #[rustfmt::skip]
     // root 1.0.0 depends on foo ^1.0.0 and target ^2.0.0
         dependency_provider.add_dependencies(
@@ -171,12 +175,13 @@ fn conflict_with_partial_satisfier() {
 ///
 /// Solution: a0, b0, c0, d0
 fn double_choices() {
-    let mut dependency_provider = OfflineDependencyProvider::<&str, NumberVersion>::new();
-    dependency_provider.add_dependencies("a", 0, vec![("b", Range::any()), ("c", Range::any())]);
-    dependency_provider.add_dependencies("b", 0, vec![("d", Range::exact(0))]);
-    dependency_provider.add_dependencies("b", 1, vec![("d", Range::exact(1))]);
+    let mut dependency_provider =
+        OfflineDependencyProvider::<&str, NumberInterval, NumberVersion>::new();
+    dependency_provider.add_dependencies("a", 0, vec![("b", Range::full()), ("c", Range::full())]);
+    dependency_provider.add_dependencies("b", 0, vec![("d", Range::singleton(0))]);
+    dependency_provider.add_dependencies("b", 1, vec![("d", Range::singleton(1))]);
     dependency_provider.add_dependencies("c", 0, vec![]);
-    dependency_provider.add_dependencies("c", 1, vec![("d", Range::exact(2))]);
+    dependency_provider.add_dependencies("c", 1, vec![("d", Range::singleton(2))]);
     dependency_provider.add_dependencies("d", 0, vec![]);
 
     // Solution.

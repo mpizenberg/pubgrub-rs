@@ -4,18 +4,25 @@ use std::cell::RefCell;
 use std::error::Error;
 
 use pubgrub::package::Package;
-use pubgrub::range::Range;
+use pubgrub::range_trait::Range;
 use pubgrub::solver::{resolve, Dependencies, DependencyProvider, OfflineDependencyProvider};
-use pubgrub::version::{NumberVersion, Version};
+use pubgrub::version_trait::{Interval, NumberInterval, NumberVersion, Version};
 
 // An example implementing caching dependency provider that will
 // store queried dependencies in memory and check them before querying more from remote.
-struct CachingDependencyProvider<P: Package, V: Version, DP: DependencyProvider<P, V>> {
+struct CachingDependencyProvider<
+    P: Package,
+    I: Interval<V>,
+    V: Version,
+    DP: DependencyProvider<P, I, V>,
+> {
     remote_dependencies: DP,
-    cached_dependencies: RefCell<OfflineDependencyProvider<P, V>>,
+    cached_dependencies: RefCell<OfflineDependencyProvider<P, I, V>>,
 }
 
-impl<P: Package, V: Version, DP: DependencyProvider<P, V>> CachingDependencyProvider<P, V, DP> {
+impl<P: Package, I: Interval<V>, V: Version, DP: DependencyProvider<P, I, V>>
+    CachingDependencyProvider<P, I, V, DP>
+{
     pub fn new(remote_dependencies_provider: DP) -> Self {
         CachingDependencyProvider {
             remote_dependencies: remote_dependencies_provider,
@@ -24,10 +31,10 @@ impl<P: Package, V: Version, DP: DependencyProvider<P, V>> CachingDependencyProv
     }
 }
 
-impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P, V>
-    for CachingDependencyProvider<P, V, DP>
+impl<P: Package, I: Interval<V>, V: Version, DP: DependencyProvider<P, I, V>>
+    DependencyProvider<P, I, V> for CachingDependencyProvider<P, I, V, DP>
 {
-    fn choose_package_version<T: std::borrow::Borrow<P>, U: std::borrow::Borrow<Range<V>>>(
+    fn choose_package_version<T: std::borrow::Borrow<P>, U: std::borrow::Borrow<Range<I, V>>>(
         &self,
         packages: impl Iterator<Item = (T, U)>,
     ) -> Result<(T, Option<V>), Box<dyn Error>> {
@@ -39,7 +46,7 @@ impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P,
         &self,
         package: &P,
         version: &V,
-    ) -> Result<Dependencies<P, V>, Box<dyn Error>> {
+    ) -> Result<Dependencies<P, I, V>, Box<dyn Error>> {
         let mut cache = self.cached_dependencies.borrow_mut();
         match cache.get_dependencies(package, version) {
             Ok(Dependencies::Unknown) => {
@@ -65,7 +72,8 @@ impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P,
 
 fn main() {
     // Simulating remote provider locally.
-    let mut remote_dependencies_provider = OfflineDependencyProvider::<&str, NumberVersion>::new();
+    let mut remote_dependencies_provider =
+        OfflineDependencyProvider::<&str, NumberInterval, NumberVersion>::new();
 
     // Add dependencies as needed. Here only root package is added.
     remote_dependencies_provider.add_dependencies("root", 1, Vec::new());

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use std::marker::PhantomData;
+
 use pubgrub::package::Package;
 use pubgrub::solver::{Dependencies, DependencyProvider, OfflineDependencyProvider};
 use pubgrub::type_aliases::{Map, SelectedDependencies};
-use pubgrub::version::Version;
+use pubgrub::version_trait::{Interval, Version};
 use varisat::ExtendFormula;
 
 const fn num_bits<T>() -> usize {
@@ -46,13 +48,14 @@ fn sat_at_most_one(solver: &mut impl varisat::ExtendFormula, vars: &[varisat::Va
 ///
 /// The SAT library does not optimize for the newer version,
 /// so the selected packages may not match the real resolver.
-pub struct SatResolve<P: Package, V: Version> {
+pub struct SatResolve<P: Package, I: Interval<V>, V: Version> {
     solver: varisat::Solver<'static>,
     all_versions_by_p: Map<P, Vec<(V, varisat::Var)>>,
+    phantom: PhantomData<I>,
 }
 
-impl<P: Package, V: Version> SatResolve<P, V> {
-    pub fn new(dp: &OfflineDependencyProvider<P, V>) -> Self {
+impl<P: Package, I: Interval<V>, V: Version> SatResolve<P, I, V> {
+    pub fn new(dp: &OfflineDependencyProvider<P, I, V>) -> Self {
         let mut cnf = varisat::CnfFormula::new();
 
         let mut all_versions = vec![];
@@ -107,6 +110,7 @@ impl<P: Package, V: Version> SatResolve<P, V> {
         Self {
             solver,
             all_versions_by_p,
+            phantom: PhantomData,
         }
     }
 
