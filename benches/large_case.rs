@@ -5,7 +5,7 @@ extern crate criterion;
 use self::criterion::*;
 
 use pubgrub::package::Package;
-use pubgrub::solver::{resolve, OfflineDependencyProvider};
+use pubgrub::solver::{resolve, OfflineDependencyProvider, SmartOfflineDependencyProvider};
 use pubgrub::version::{NumberVersion, SemanticVersion, Version};
 use serde::de::Deserialize;
 use std::hash::Hash;
@@ -14,7 +14,9 @@ fn bench<'a, P: Package + Deserialize<'a>, V: Version + Hash + Deserialize<'a>>(
     b: &mut Bencher,
     case: &'a str,
 ) {
-    let dependency_provider: OfflineDependencyProvider<P, V> = ron::de::from_str(&case).unwrap();
+    // let dependency_provider: OfflineDependencyProvider<P, V> = ron::de::from_str(&case).unwrap();
+    let dependency_provider: SmartOfflineDependencyProvider<P, V> =
+        ron::de::from_str(&case).unwrap();
 
     b.iter(|| {
         for p in dependency_provider.packages() {
