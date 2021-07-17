@@ -21,7 +21,7 @@ use crate::version::Version;
 
 /// Current state of the PubGrub algorithm.
 #[derive(Clone)]
-pub struct State<P: Package, V: Version> {
+pub struct State<P: Package, V: Version, Priority: Ord + Clone> {
     root_package: P,
     root_version: V,
 
@@ -33,7 +33,7 @@ pub struct State<P: Package, V: Version> {
 
     /// Partial solution.
     /// TODO: remove pub.
-    pub partial_solution: PartialSolution<P, V>,
+    pub partial_solution: PartialSolution<P, V, Priority>,
 
     /// The store is the reference storage for all incompatibilities.
     pub incompatibility_store: Arena<Incompatibility<P, V>>,
@@ -44,7 +44,7 @@ pub struct State<P: Package, V: Version> {
     unit_propagation_buffer: SmallVec<P>,
 }
 
-impl<P: Package, V: Version> State<P, V> {
+impl<P: Package, V: Version, Priority: Ord + Clone> State<P, V, Priority> {
     /// Initialization of PubGrub state.
     pub fn init(root_package: P, root_version: V) -> Self {
         let mut incompatibility_store = Arena::new();

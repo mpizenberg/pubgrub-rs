@@ -27,13 +27,6 @@ impl<P: Package, V: Version, DP: DependencyProvider<P, V>> CachingDependencyProv
 impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P, V>
     for CachingDependencyProvider<P, V, DP>
 {
-    fn choose_package_version<T: std::borrow::Borrow<P>, U: std::borrow::Borrow<Range<V>>>(
-        &self,
-        packages: impl Iterator<Item = (T, U)>,
-    ) -> Result<(T, Option<V>), Box<dyn Error>> {
-        self.remote_dependencies.choose_package_version(packages)
-    }
-
     // Caches dependencies if they were already queried
     fn get_dependencies(
         &self,
@@ -60,6 +53,16 @@ impl<P: Package, V: Version, DP: DependencyProvider<P, V>> DependencyProvider<P,
             dependencies @ Ok(_) => dependencies,
             error @ Err(_) => error,
         }
+    }
+
+    fn choose_version(&self, package: &P, range: &Range<V>) -> Result<Option<V>, Box<dyn Error>> {
+        self.remote_dependencies.choose_version(package, range)
+    }
+
+    type Priority = DP::Priority;
+
+    fn prioritize(&self, package: &P, range: &Range<V>) -> Self::Priority {
+        self.remote_dependencies.prioritize(package, range)
     }
 }
 
