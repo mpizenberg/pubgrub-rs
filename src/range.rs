@@ -16,6 +16,7 @@
 
 use std::cmp::Ordering;
 use std::fmt;
+use std::ops::{Bound, RangeBounds};
 
 use crate::internal::small_vec::SmallVec;
 use crate::version::Version;
@@ -83,6 +84,31 @@ impl<V: Version> Range<V> {
             }
         } else {
             Self::none()
+        }
+    }
+
+    /// Construct a simple range from anything that impls `RangeBounds` like `v1..v2`
+    pub fn from_range_bounds<'a, R, IV: 'a>(bounds: &'a R) -> Self
+    where
+        R: RangeBounds<IV>,
+        &'a IV: Into<V>,
+    {
+        let start = match bounds.start_bound() {
+            Bound::Included(s) => s.into(),
+            Bound::Excluded(s) => s.into().bump(),
+            Bound::Unbounded => V::lowest(),
+        };
+        let end = match bounds.end_bound() {
+            Bound::Included(e) => Some(e.into().bump()),
+            Bound::Excluded(e) => Some(e.into()),
+            Bound::Unbounded => None,
+        };
+        if end.is_some() && end.as_ref() <= Some(&start) {
+            Self::none()
+        } else {
+            Self {
+                segments: SmallVec::one((start, end)),
+            }
         }
     }
 }
@@ -259,6 +285,23 @@ impl<V: Version> Range<V> {
     /// Return the lowest version in the range (if there is one).
     pub fn lowest_version(&self) -> Option<V> {
         self.segments.first().map(|(start, _)| start).cloned()
+    }
+
+    /// Conver to somthing that can be used with BTreeMap::range
+    /// All versions contained in self, will be in the output,
+    /// but there may be versions in the output that are not contained in self.
+    /// returns None if the range is empty.
+    pub fn as_range_bounds(&self) -> Option<(Bound<&V>, Bound<&V>)> {
+        self.segments.first().map(|(start, _)| {
+            let end = {
+                self.segments
+                    .last()
+                    .and_then(|(_, l)| l.as_ref())
+                    .map(Bound::Excluded)
+                    .unwrap_or(Bound::Unbounded)
+            };
+            (Bound::Included(start), end)
+        })
     }
 }
 
